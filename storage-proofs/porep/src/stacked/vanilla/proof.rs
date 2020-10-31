@@ -1,8 +1,9 @@
+use lazy_static::lazy_static;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
-use std::sync::{mpsc, Arc, RwLock};
+use std::sync::{mpsc, Arc, Mutex, RwLock};
 
 use anyhow::Context;
 use bellperson::bls::Fr;
@@ -55,6 +56,10 @@ use crate::encode::{decode, encode};
 use crate::PoRep;
 
 pub const TOTAL_PARENTS: usize = 37;
+
+lazy_static! {
+    static ref GPU_LOCK: Mutex<()> = Mutex::new(());
+}
 
 #[derive(Debug)]
 pub struct StackedDrg<'a, Tree: 'a + MerkleTreeTrait, G: 'a + Hasher> {
@@ -505,6 +510,7 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                 });
                 let configs = &configs;
                 s.spawn(move |_| {
+                    let _gpu_lock = GPU_LOCK.lock().unwrap();
                     let mut column_tree_builder = ColumnTreeBuilder::<
                             ColumnArity,
                         TreeArity,
@@ -770,6 +776,7 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                 {
                     let tree_r_last_config = &tree_r_last_config;
                     s.spawn(move |_| {
+                        let _gpu_lock = GPU_LOCK.lock().unwrap();
                         let mut tree_builder = TreeBuilder::<Tree::Arity>::new(
                             Some(BatcherType::GPU),
                             nodes_count,
@@ -1166,6 +1173,7 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
             info!("generating tree r last using the GPU");
             let max_gpu_tree_batch_size = settings::SETTINGS.max_gpu_tree_batch_size as usize;
 
+            let _gpu_lock = GPU_LOCK.lock().unwrap();
             let mut tree_builder = TreeBuilder::<Tree::Arity>::new(
                 Some(BatcherType::GPU),
                 nodes_count,
