@@ -511,7 +511,6 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                     }
                 });
                 s.spawn(move |_| {
-                    let _gpu_lock = GPU_LOCK.lock().unwrap();
                     let mut column_tree_builder = ColumnTreeBuilder::<ColumnArity, TreeArity>::new(
                         Some(BatcherType::GPU),
                         nodes_count,
@@ -527,6 +526,8 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
 
                         // Just add non-final column batches.
                         if !is_final {
+                            let _gpu_lock = GPU_LOCK.lock().unwrap();
+
                             column_tree_builder
                                 .add_columns(&columns)
                                 .expect("failed to add columns");
@@ -534,9 +535,12 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                         };
 
                         // If we get here, this is a final column: build a sub-tree.
-                        let (base_data, tree_data) = column_tree_builder
-                            .add_final_columns(&columns)
-                            .expect("failed to add final columns");
+                        let (base_data, tree_data) = {
+                            let _gpu_lock = GPU_LOCK.lock().unwrap();
+                            column_tree_builder
+                                .add_final_columns(&columns)
+                                .expect("failed to add final columns")
+                        };
                         trace!(
                             "base data len {}, tree data len {}",
                             base_data.len(),
@@ -788,7 +792,6 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                     }
                 });
                 s.spawn(move |_| {
-                    let _gpu_lock = GPU_LOCK.lock().unwrap();
                     let mut tree_builder = TreeBuilder::<Tree::Arity>::new(
                         Some(BatcherType::GPU),
                         nodes_count,
@@ -804,6 +807,8 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
 
                         // Just add non-final leaf batches.
                         if !is_final {
+                            let _gpu_lock = GPU_LOCK.lock().unwrap();
+
                             tree_builder
                                 .add_leaves(&encoded)
                                 .expect("failed to add leaves");
@@ -816,9 +821,12 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                             i + 1,
                             tree_count
                         );
-                        let (_, tree_data) = tree_builder
-                            .add_final_leaves(&encoded)
-                            .expect("failed to add final leaves");
+                        let (_, tree_data) = {
+                            let _gpu_lock = GPU_LOCK.lock().unwrap();
+                            tree_builder
+                                .add_final_leaves(&encoded)
+                                .expect("failed to add final leaves")
+                        };
 
                         writer_tx.send(tree_data).expect("failed to send tree_data");
                     }
@@ -1181,7 +1189,6 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
             info!("generating tree r last using the GPU");
             let max_gpu_tree_batch_size = settings::SETTINGS.max_gpu_tree_batch_size as usize;
 
-            let _gpu_lock = GPU_LOCK.lock().unwrap();
             let mut tree_builder = TreeBuilder::<Tree::Arity>::new(
                 Some(BatcherType::GPU),
                 nodes_count,
@@ -1200,6 +1207,8 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                     consumed += batch_size;
 
                     if consumed != nodes_count {
+                        let _gpu_lock = GPU_LOCK.lock().unwrap();
+
                         tree_builder
                             .add_leaves(&zero_leaves[0..batch_size])
                             .expect("failed to add leaves");
@@ -1213,9 +1222,12 @@ impl<'a, Tree: 'static + MerkleTreeTrait, G: 'static + Hasher> StackedDrg<'a, Tr
                         tree_count
                     );
 
-                    let (_, tree_data) = tree_builder
-                        .add_final_leaves(&zero_leaves[0..batch_size])
-                        .expect("failed to add final leaves");
+                    let (_, tree_data) = {
+                        let _gpu_lock = GPU_LOCK.lock().unwrap();
+                        tree_builder
+                            .add_final_leaves(&zero_leaves[0..batch_size])
+                            .expect("failed to add final leaves")
+                    };
                     let tree_data_len = tree_data.len();
                     let cache_size = get_merkle_tree_cache_size(
                         get_merkle_tree_leafs(
