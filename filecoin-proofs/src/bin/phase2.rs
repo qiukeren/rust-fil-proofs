@@ -29,6 +29,7 @@ use rand::rngs::OsRng;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use simplelog::{self, CombinedLogger, LevelFilter, TermLogger, TerminalMode, WriteLogger};
+use storage_proofs::api_version::APIVersion;
 use storage_proofs::compound_proof::{self, CompoundProof};
 use storage_proofs::hasher::Sha256Hasher;
 use storage_proofs::merkle::MerkleTreeTrait;
@@ -41,6 +42,8 @@ use storage_proofs::porep::stacked::{
 use storage_proofs::post::fallback::{
     FallbackPoSt, FallbackPoStCircuit, FallbackPoStCompound, PublicParams as PoStPublicParams,
 };
+
+const FIXED_API_VERSION: APIVersion = APIVersion::V1_0;
 
 const CHUNK_SIZE: usize = 10_000;
 
@@ -299,6 +302,7 @@ fn blank_sdr_poseidon_params<Tree: MerkleTreeTrait>(sector_size: u64) -> PoRepPu
         sector_size: SectorSize(sector_size),
         partitions: PoRepProofPartitions(n_partitions),
         porep_id: [0; 32],
+        api_version: FIXED_API_VERSION,
     };
 
     let setup_params = compound_proof::SetupParams {
@@ -329,6 +333,7 @@ fn blank_winning_post_poseidon_params<Tree: 'static + MerkleTreeTrait>(
         sector_count: WINNING_POST_SECTOR_COUNT,
         typ: PoStType::Winning,
         priority: false,
+        api_version: FIXED_API_VERSION,
     };
 
     winning_post_public_params::<Tree>(&post_config).expect("winning post public params failed")
@@ -347,6 +352,7 @@ fn blank_window_post_poseidon_params<Tree: 'static + MerkleTreeTrait>(
             .expect("post config sector count get failure"),
         typ: PoStType::Window,
         priority: false,
+        api_version: FIXED_API_VERSION,
     };
 
     window_post_public_params::<Tree>(&post_config).expect("window post public params failed")
